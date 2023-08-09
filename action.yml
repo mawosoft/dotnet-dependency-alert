@@ -1,0 +1,54 @@
+# Copyright (c) 2023 Matthias Wolf, Mawosoft.
+
+name: DotNet Dependency Alert
+description: >-
+  Scan .NET solutions and projects for vulnerable, deprecated, or
+  outdated package references and create an alert."
+author: mawosoft
+branding:
+  icon: alert-triangle
+  color: purple
+
+inputs:
+  working-directory:
+    description: TODO
+  projects:
+    description: TODO
+  no-restore:
+    description: TODO
+  include-outdated-transitive:
+    description: TODO
+  artifact-name:
+    description: TODO
+  retention-days:
+    description: TODO
+  issue-labels:
+    description: TODO
+
+outputs:
+  artifact-name:
+    description: TODO
+    value: ${{ steps.dependency_check.outputs.ArtifactName }}
+  artifact-path:
+    description: TODO
+    value: ${{ steps.dependency_check.outputs.ArtifactPath }}
+  issue-number:
+    description: TODO
+    value: ${{ steps.dependency_check.outputs.IssueNumber }}
+
+runs:
+  using: composite
+  steps:
+    - name: Dependency Check
+      id: dependency_check
+      shell: pwsh
+      run: |
+        $inputs = @"
+        ${{ toJson(inputs) }}
+        "@
+        ${{ github.action_path }}/action.ps1 -InputsJson $inputs
+    - name: Upload Dependency Context
+      uses: actions/upload-artifact@v3
+      with:
+        name: ${{ steps.dependency_check.outputs.ArtifactName }}
+        path: ${{ steps.dependency_check.outputs.ArtifactPath }}
