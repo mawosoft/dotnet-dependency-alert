@@ -35,7 +35,9 @@ function Get-WorkflowId {
         $auth.Authentication = 'Bearer'
         $auth.Token = $Token
     }
-    $result = Invoke-RestMethod -Uri "https://api.github.com/repos/$OwnerRepo/actions/runs/$RunId" @auth
+    $githubApiUrl = $env:GITHUB_API_URL
+    if (-not $githubApiUrl) { $githubApiUrl = 'https://api.github.com' }
+    $result = Invoke-RestMethod -Uri "$githubApiUrl/repos/$OwnerRepo/actions/runs/$RunId" @auth
     return $result.workflow_id
 }
 
@@ -100,15 +102,17 @@ function Find-ArtifactsFromPreviousRun {
     }
 
     if ($MaxRunNumber -lt $MinRunNumber) {
-        throw "MaxRunNumber must be greater or equal MinRunNumber."
+        throw 'MaxRunNumber must be greater or equal MinRunNumber.'
     }
     $auth = @{}
     if ($Token) {
         $auth.Authentication = 'Bearer'
         $auth.Token = $Token
     }
+    $githubApiUrl = $env:GITHUB_API_URL
+    if (-not $githubApiUrl) { $githubApiUrl = 'https://api.github.com' }
     $params = @{
-        Uri           = "https://api.github.com/repos/$OwnerRepo/actions/workflows/$WorkflowId/runs"
+        Uri           = "$githubApiUrl/repos/$OwnerRepo/actions/workflows/$WorkflowId/runs"
         FollowRelLink = $false
     }
 
@@ -133,7 +137,7 @@ function Find-ArtifactsFromPreviousRun {
             # Only if that page had gaps in the run mumbers and/or not enough entries to get a hit, we
             # will end up here to request all data.
             $params.FollowRelLink = $true
-            Write-Verbose "Artifacts not found on first GitHub API result page. Retrieving all results."
+            Write-Verbose 'Artifacts not found on first GitHub API result page. Retrieving all results.'
             $result = Invoke-RestMethod @params @auth
             $runs = $result.workflow_runs | Where-Object {
                 $_.run_number -le $runNumber -and $_.run_number -ge $MinRunNumber

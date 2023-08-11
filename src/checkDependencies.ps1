@@ -71,6 +71,11 @@ if ($null -eq (Get-ChildItem function:Start-NativeExecution -ErrorAction Silentl
 
 Import-Module "$PSScriptRoot/GitHubHelper.psm1" -Force
 
+[string]$githubUrl = $env:GITHUB_SERVER_URL
+if (-not $githubUrl) { $githubUrl = 'https://github.com' }
+[string]$githubApiUrl = $env:GITHUB_API_URL
+if (-not $githubApiUrl) { $githubApiUrl = 'https://api.github.com' }
+
 [ListPackageResult]$previousResult = $null
 [ListPackageResult]$result = $null
 
@@ -184,12 +189,12 @@ if ($diffToplevel -or $diffTransitive -or (-not $previousResult -and ($toplevel 
         Token          = $GitHubToken
     }
 
-    [string]$uri = "https://api.github.com/repos/$($env:GITHUB_REPOSITORY)/actions/workflows/$workflowId"
+    [string]$uri = "$githubApiUrl/repos/$($env:GITHUB_REPOSITORY)/actions/workflows/$workflowId"
     $workflow = Invoke-RestMethod -Uri $uri @auth
-    $uri = "https://api.github.com/repos/$($env:GITHUB_REPOSITORY)/actions/runs/$($env:GITHUB_RUN_ID)"
+    $uri = "$githubApiUrl/repos/$($env:GITHUB_REPOSITORY)/actions/runs/$($env:GITHUB_RUN_ID)"
     $run = Invoke-RestMethod -Uri $uri @auth
     # Note: $workflow.html_url points to the source file, not the overview of workflow runs.
-    [string]$urlWorkflowRuns = "https://github.com/$($env:GITHUB_REPOSITORY)/actions/workflows/$(Split-Path $workflow.path -Leaf)"
+    [string]$urlWorkflowRuns = "$githubUrl/$($env:GITHUB_REPOSITORY)/actions/workflows/$(Split-Path $workflow.path -Leaf)"
 
     [StringBuilder]$body = [StringBuilder]::new()
     $null = $body.AppendLine("Workflow [$($workflow.name)]($urlWorkflowRuns) Run [#$($run.run_number)]($($run.html_url))").AppendLine()
@@ -226,7 +231,7 @@ if ($diffToplevel -or $diffTransitive -or (-not $previousResult -and ($toplevel 
         body  = $body.ToString()
     }
     if ($IssueLabels) { $params.labels = $IssueLabels }
-    $uri = "https://api.github.com/repos/$env:GITHUB_REPOSITORY/issues"
+    $uri = "$githubApiUrl/repos/$env:GITHUB_REPOSITORY/issues"
     $issue = $params | ConvertTo-Json -EscapeHandling EscapeNonAscii | Invoke-RestMethod -Uri $uri -Method Post @auth
     Write-Output "IssueNumber=$($issue.number)" >>$env:GITHUB_OUTPUT
     $notice.Add("Created Dependency Alert. Issue #$($issue.number): $($issue.html_url)")
