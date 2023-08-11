@@ -128,7 +128,7 @@ class ParsedPackageRef {
     # Construct from 'list package' output. Processed lines will be dequeued from $lines.
     ParsedPackageRef([string]$project, [string]$framework, [ParsedColumnInfo]$columnInfo, [Queue[string]]$lines) {
         if (-not $lines.Peek().StartsWith('   > ')) {
-            throw "Invalid package row"
+            throw 'Invalid package row'
         }
         [string]$line = $lines.Dequeue()
         [string]$pkgname = [ParsedPackageRef]::TryGetColumnValue($columnInfo, 'Name', $line).Substring(2).Trim()
@@ -308,18 +308,18 @@ class MergedPackageRef {
                 [int]($packages.Deprecated.Item1 | Measure-Object Length -Maximum)?.Maximum,
                 [int]($packages.Deprecated.Item2 | Measure-Object Length -Maximum)?.Maximum,
                 [int]($packages.Deprecated.ForEach({ if ($_.Item1 -or $_.Item2) { $_.ToString() } }) |
-                    Measure-Object Length -Maximum)?.Maximum
+                        Measure-Object Length -Maximum)?.Maximum
             )
             Vulnerable  = [ValueTuple]::Create(
                 [int]($packages.ForEach({ $_.Vulnerable.ForEach({ $_.Item1 }) }) |
-                    Measure-Object Length -Maximum)?.Maximum,
+                        Measure-Object Length -Maximum)?.Maximum,
                 [int]($packages.ForEach({ $_.Vulnerable.ForEach({ $_.Item2 }) }) |
-                    Measure-Object Length -Maximum)?.Maximum,
+                        Measure-Object Length -Maximum)?.Maximum,
                 [int]($packages.ForEach({ $_.Vulnerable.ForEach({ $_.ToString() }) }) |
-                    Measure-Object Length -Maximum)?.Maximum
+                        Measure-Object Length -Maximum)?.Maximum
             )
             Projects    = [int]($packages.Projects.ForEach({ $_.ToString() }) |
-                Measure-Object Length -Maximum)?.Maximum
+                    Measure-Object Length -Maximum)?.Maximum
         }
     }
 
@@ -659,22 +659,24 @@ function Invoke-ListPackage {
     param (
         # Project or solution files to process. Defaults to the solution or project
         # in the current directory
-        [Parameter(Position = 0)]
-        [Alias('p')]
         [string[]]$Projects,
 
         # 'list package' options to run for each project/solution
         [ValidateNotNullOrEmpty()]
-        [Alias('o')]
         [string[][]]$OptionsMatrix = (
             ('--outdated', '--include-transitive'),
             ('--vulnerable', '--include-transitive'),
             ('--deprecated', '--include-transitive')
         ),
 
+        # A non-default NuGet config file to use.
+        [string]$NuGetConfig,
+
+        # The non-default NuGet sources to use when searching for packages.
+        [string[]]$NuGetSources,
+
         # Remove transitive packages that are only marked as outdated, but not
         # vulnerable or deprecated.
-        [Alias('r')]
         [switch]$RemoveTransitiveIfOutdatedOnly
     )
 
@@ -684,11 +686,20 @@ function Invoke-ListPackage {
         $Projects = @('')
     }
 
+    $baseParams = @('list', '<project>', 'package')
+    if ($NuGetConfig) {
+        $baseParams += @('--config', $NuGetConfig)
+    }
+    if ($NuGetSources) {
+        $baseParams += $NuGetSources.ForEach({ '--source'; $_ })
+    }
+
     foreach ($project in $Projects) {
         foreach ($options in $OptionsMatrix) {
             $retval = $null
             $output = $null
-            [string[]] $params = @('list', $project, "package") + $options
+            $params = $baseParams + $options
+            $params[1] = $project
             try {
                 $retval = Start-NativeExecution { dotnet $params 2>&1 } -OutVariable output
                 [ListPackageResult]$result = [ListPackageResult]::new($retval)

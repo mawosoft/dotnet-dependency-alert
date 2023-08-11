@@ -1,39 +1,63 @@
 # Copyright (c) 2023 Matthias Wolf, Mawosoft.
 
 name: DotNet Dependency Alert
-description: >-
+description: >
   Scan .NET solutions and projects for vulnerable, deprecated, or
-  outdated package references and create an alert."
+  outdated package references and create an alert.
 author: mawosoft
 branding:
   icon: alert-triangle
   color: purple
 
 inputs:
+  token:
+    description: The GitHub token to use.
+    default: ${{ github.token }}
+    required: true
   working-directory:
-    description: TODO
+    description: The working directory to use. Default is the current directory.
   projects:
-    description: TODO
+    description: >
+      The project or solution files to process. Default is the file found in the working directory.
+      To pass multiple files, place each on a new line.
   no-restore:
-    description: TODO
+    description: True to prevent running 'dotnet restore' on all project or solution files.
+    default: false
+  nuget-config:
+    description: A non-default NuGet config file to use.
+  nuget-sources:
+    description: >
+      The non-default NuGet sources to use when searching for packages.
+      To pass multiple sources, place each on a new line.
   include-outdated-transitive:
-    description: TODO
+    description: >
+      True to include transitive package references in the report that are only outdated,
+      but not vulnerable or deprecated.
+    default: false
   artifact-name:
-    description: TODO
+    description: The artifact name used to store status information between workflow runs.
+    default: 'DependencyCheck'
   retention-days:
-    description: TODO
+    description: >
+      The retention period for the status artifact. This can be rather short, depending on the
+      interval at which the workflow is run. Set to 0 to use the retention period configured
+      in the repository.
+    default: 5
   issue-labels:
-    description: TODO
+    description: >
+      The label to use for any Dependecy Alert issues created.
+      To pass multiple labels, place each on a new line.
+    default: 'dependencies'
 
 outputs:
   artifact-name:
-    description: TODO
+    description: The artifact name used to store status information between workflow runs.
     value: ${{ steps.dependency_check.outputs.ArtifactName }}
   artifact-path:
-    description: TODO
+    description: The path to the artifact file created.
     value: ${{ steps.dependency_check.outputs.ArtifactPath }}
   issue-number:
-    description: TODO
+    description: The number of the newly created issue, if any.
     value: ${{ steps.dependency_check.outputs.IssueNumber }}
 
 runs:
@@ -46,7 +70,7 @@ runs:
         $inputs = @"
         ${{ toJson(inputs) }}
         "@
-        ${{ github.action_path }}/action.ps1 -InputsJson $inputs
+        & '${{ github.action_path }}/action.ps1' -InputsJson $inputs
     - name: Upload Dependency Context
       uses: actions/upload-artifact@v3
       with:

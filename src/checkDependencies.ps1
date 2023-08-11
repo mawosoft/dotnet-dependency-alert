@@ -28,30 +28,31 @@ using namespace ListPackageHelper
 
 [CmdletBinding()]
 param (
-    # Project or solution files to process. Defaults to the solution or project
-    # in the current directory
-    [Parameter(Position = 0)]
-    [Alias('p')]
-    [string[]]$Projects,
-
-    # 'list package' options to run for each project/solution
-    [ValidateNotNullOrEmpty()]
-    [Alias('o')]
-    [string[][]]$OptionsMatrix = (
-        ('--outdated', '--include-transitive'),
-        ('--vulnerable', '--include-transitive'),
-        ('--deprecated', '--include-transitive')
-    ),
-
+    # The GitHub token to use.
     [Parameter(Mandatory)]
-    [Alias('Token', 't')]
     [securestring]$GitHubToken,
 
+    # The project or solution files to process. Default is the file found in the current directory.
+    [string[]]$Projects,
+
+    # Prevent running 'dotnet restore' on all project or solution files.
+    [switch]$NoRestore,
+
+    # A non-default NuGet config file to use.
+    [string]$NuGetConfig,
+
+    # The non-default NuGet sources to use when searching for packages.
+    [string[]]$NuGetSources,
+
+    # Include transitive package references in the report that are only outdated,
+    # but not vulnerable or deprecated.
+    [switch]$IncludeOutdatedTransitive,
+
+    # The artifact name used to store status information between workflow runs.
     [ValidateNotNullOrEmpty()]
-    [Alias('Artifact', 'a')]
     [string]$ArtifactName = 'DependencyCheck',
 
-    [Alias('Labels', 'l')]
+    # The labels to use for any Dependecy Alert issues created.
     [string[]]$IssueLabels = @('dependencies')
 )
 
@@ -62,6 +63,10 @@ $ErrorActionPreference = 'Stop'
 if (-not $env:GITHUB_RUN_ID -or -not $env:GITHUB_RUN_NUMBER -or
     -not $env:GITHUB_REPOSITORY -or -not $env:GITHUB_OUTPUT) {
     throw 'GitHub environment variables are not defined.'
+}
+
+if ($null -eq (Get-ChildItem function:Start-NativeExecution -ErrorAction SilentlyContinue)) {
+    . "$PSScriptRoot/startNativeExecution.ps1"
 }
 
 Import-Module "$PSScriptRoot/GitHubHelper.psm1" -Force
@@ -86,9 +91,41 @@ if ($runNumber -gt 1) {
     }
 }
 
-Write-Host '::group::Raw tool output'
+if (-not $NoRestore) {
+    $restoreProjects = $Projects
+    if (-not $restoreProjects) {
+        $restoreProjects = @('')
+    }
+    $restoreParams = @('restore', '<project>')
+    if ($NuGetConfig) {
+        $restoreParams += @('--configfile', $NuGetConfig)
+    }
+    if ($NuGetSources) {
+        $restoreParams += $NuGetSources.ForEach({ '--source'; $_ })
+    }
+    Write-Host '::group::Restore'
+    try {
+        foreach ($project in $restoreProjects) {
+            $restoreParams[1] = $project
+            Write-Host ('dotnet ' + $restoreParams)
+            Start-NativeExecution { dotnet $restoreParams }
+        }
+    }
+    finally {
+        Write-Host '::endgroup::'
+    }
+}
+
+Write-Host '::group::Raw dotnet list package output'
 try {
-    $result = Invoke-ListPackage -p $Projects -o $OptionsMatrix -InformationAction 'Continue'
+    $listParams = @{
+        Projects                       = $Projects
+        NuGetConfig                    = $NuGetConfig
+        NuGetSources                   = $NuGetSources
+        RemoveTransitiveIfOutdatedOnly = -not $IncludeOutdatedTransitive
+        InformationAction              = 'Continue'
+    }
+    $result = Invoke-ListPackage @listParams
 }
 finally {
     Write-Host '::endgroup::'
