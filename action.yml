@@ -76,3 +76,4 @@ runs:
       with:
         name: ${{ steps.dependency_check.outputs.ArtifactName }}
         path: ${{ steps.dependency_check.outputs.ArtifactPath }}
+        retention-days: ${{ inputs.retention-days }}
