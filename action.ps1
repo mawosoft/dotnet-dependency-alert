@@ -31,7 +31,7 @@ class Inputs {
     }
 
     [bool] GetBool([string]$key) {
-        return $this._inputs[$key] -eq 'true'
+        return "$($this._inputs[$key])".Trim() -eq 'true'
     }
 
     [int] GetInt([string]$key) {
