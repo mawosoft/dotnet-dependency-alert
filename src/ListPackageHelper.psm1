@@ -699,7 +699,7 @@ function Invoke-ListPackage {
             $retval = $null
             $output = $null
             $params = $baseParams + $options
-            $params[1] = $project
+            $params[1] = $project ? $project : $null
             try {
                 $retval = Start-NativeExecution { dotnet $params 2>&1 } -OutVariable output
                 [ListPackageResult]$result = [ListPackageResult]::new($retval)
